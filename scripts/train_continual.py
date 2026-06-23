@@ -47,21 +47,20 @@ def main(args):
 
     training_args = TrainingArguments(
         output_dir=cfg["output_dir"],
-        per_device_train_batch_size=cfg["per_device_train_batch_size"],
-        gradient_accumulation_steps=cfg["gradient_accumulation_steps"],
-        learning_rate=cfg["learning_rate"],
-        max_steps=cfg["max_steps"],
-        warmup_steps=cfg["warmup_steps"],
-        weight_decay=cfg["weight_decay"],
+        per_device_train_batch_size=int(cfg["per_device_train_batch_size"]),
+        gradient_accumulation_steps=int(cfg["gradient_accumulation_steps"]),
+        learning_rate=float(cfg["learning_rate"]),
+        max_steps=int(cfg["max_steps"]),
+        warmup_steps=int(cfg["warmup_steps"]),
+        weight_decay=float(cfg["weight_decay"]),
         lr_scheduler_type=cfg["lr_scheduler_type"],
-        fp16=cfg.get("fp16", False),
-        bf16=cfg.get("bf16", True),
-        logging_steps=cfg["logging_steps"],
-        save_steps=cfg["save_steps"],
-        seed=cfg["seed"],
+        fp16=bool(cfg.get("fp16", False)),
+        bf16=bool(cfg.get("bf16", False)),
+        logging_steps=int(cfg["logging_steps"]),
+        save_steps=int(cfg["save_steps"]),
+        seed=int(cfg["seed"]),
         report_to="none",
     )
-
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
