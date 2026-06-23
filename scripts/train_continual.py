@@ -1,76 +1,82 @@
-#!/usr/bin/env python
+# scripts/train_continual.py
 import argparse
 import yaml
-from unsloth import FastLanguageModel, UnslothTrainer, UnslothTrainingArguments
-from datasets import load_dataset
+import json
+import torch
+from datasets import Dataset
+from unsloth import FastLanguageModel
+from trl import SFTTrainer
+from transformers import TrainingArguments
 
-def main():
-    parser = argparse.ArgumentParser(description="Continual Pretraining with UnslothTrainer")
-    parser.add_argument(
-        "--config", required=True,
-        help="Path to the CPT config YAML (e.g. config/cpt.yaml)"
-    )
-    args = parser.parse_args()
+def load_config(path):
+    with open(path) as f:
+        return yaml.safe_load(f)
 
-    # Load hyperparameters from YAML
-    cfg = yaml.safe_load(open(args.config, "r"))
+def load_jsonl(path, text_col="text"):
+    rows = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            obj = json.loads(line)
+            rows.append({text_col: obj[text_col]})
+    return Dataset.from_list(rows)
 
-    # 1️⃣ Load base model & tokenizer
+def main(args):
+    cfg = load_config(args.config)
+
+    print(f"Carregando modelo: {cfg['model_name']}")
     model, tokenizer = FastLanguageModel.from_pretrained(
-        cfg["model"],
+        model_name=cfg["model_name"],
         max_seq_length=cfg["max_seq_length"],
-        dtype=None,
-        load_in_4bit=cfg["load_in_4bit"]
+        dtype=None,           # Auto-detect
+        load_in_4bit=True,
     )
 
-    # 2️⃣ Attach LoRA adapters
     model = FastLanguageModel.get_peft_model(
         model,
-        r=cfg["lora_rank"],
-        target_modules=cfg["adapter_targets"],
-        lora_alpha=cfg.get("lora_alpha", cfg["lora_rank"] * 2),
-        lora_dropout=cfg.get("lora_dropout", 0.0),
+        r=cfg["lora_r"],
+        lora_alpha=cfg["lora_alpha"],
+        lora_dropout=cfg["lora_dropout"],
+        target_modules=cfg["target_modules"],
         bias="none",
-        use_gradient_checkpointing=cfg["gradient_checkpointing"],
-        random_state=cfg.get("random_state", 3407),
-        use_rslora=True
+        use_gradient_checkpointing="unsloth",
+        random_state=cfg["seed"],
     )
 
-    # 3️⃣ Load preprocessed Wikipedia dataset
-    ds = load_dataset(
-        "json",
-        data_files={"train": "data/wikipedia_ko/processed.jsonl"}
-    )["train"]
+    print(f"Carregando dados: {cfg['data_path']}")
+    dataset = load_jsonl(cfg["data_path"], text_col=cfg["text_column"])
 
-    # 4️⃣ Build valid training arguments (cast numerics appropriately)
-    training_args = UnslothTrainingArguments(
-        per_device_train_batch_size=int(cfg["per_device_train_batch_size"]),
-        gradient_accumulation_steps=int(cfg["gradient_accumulation_steps"]),
-        max_steps=int(cfg["max_steps"]),
-        warmup_steps=int(cfg["warmup_steps"]),
-        learning_rate=float(cfg["learning_rate"]),
-        embedding_learning_rate=float(cfg["embedding_learning_rate"]),
-        logging_steps=int(cfg.get("logging_steps", 10)),
-        optim=cfg.get("optim", "adamw_8bit"),
-        weight_decay=float(cfg.get("weight_decay", 0.0)),
-        lr_scheduler_type=cfg.get("lr_scheduler_type", "linear"),
-        seed=int(cfg.get("random_state", 3407)),
+    training_args = TrainingArguments(
         output_dir=cfg["output_dir"],
-        report_to=cfg.get("report_to", "none")
+        per_device_train_batch_size=cfg["per_device_train_batch_size"],
+        gradient_accumulation_steps=cfg["gradient_accumulation_steps"],
+        learning_rate=cfg["learning_rate"],
+        max_steps=cfg["max_steps"],
+        warmup_steps=cfg["warmup_steps"],
+        weight_decay=cfg["weight_decay"],
+        lr_scheduler_type=cfg["lr_scheduler_type"],
+        fp16=cfg.get("fp16", False),
+        bf16=cfg.get("bf16", True),
+        logging_steps=cfg["logging_steps"],
+        save_steps=cfg["save_steps"],
+        seed=cfg["seed"],
+        report_to="none",
     )
 
-    # 5️⃣ Initialize and run the trainer
-    trainer = UnslothTrainer(
+    trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
-        train_dataset=ds,
-        dataset_text_field="text",
+        train_dataset=dataset,
+        dataset_text_field=cfg["text_column"],
         max_seq_length=cfg["max_seq_length"],
-        dataset_num_proc=int(cfg.get("dataset_num_proc", 2)),
-        args=training_args
+        args=training_args,
     )
 
+    print("Iniciando Continual Pre-Training...")
     trainer.train()
+    print(f"Treinamento concluído. Checkpoints salvos em: {cfg['output_dir']}")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="config/cpt.yaml")
+    args = parser.parse_args()
+    main(args)

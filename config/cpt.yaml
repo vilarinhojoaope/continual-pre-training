@@ -1,10 +1,15 @@
-# config/cpt.yaml
-# Hyperparameters for continual pretraining
-model: "unsloth/mistral-7b-v0.3-bnb-4bit"
-max_seq_length: 2048
-load_in_4bit: true
-lora_rank: 128
-adapter_targets:
+
+model_name: "unsloth/Qwen2.5-1.5B-bnb-4bit"
+output_dir: "outputs/qwen-dompi-cpt"
+
+
+data_path: "data/dompi/processed.jsonl"
+text_column: "text"
+
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
+target_modules:
   - "q_proj"
   - "k_proj"
   - "v_proj"
@@ -12,19 +17,18 @@ adapter_targets:
   - "gate_proj"
   - "up_proj"
   - "down_proj"
-  - "embed_tokens"
-  - "lm_head"
-lora_alpha: 32
-lora_dropout: 0.0
-bias: "none"
-gradient_checkpointing: "unsloth"
-random_state: 3407
-learning_rate: 5e-5
-embedding_learning_rate: 1e-5
-max_steps: 120
-warmup_steps: 10
+
+
+max_seq_length: 2048
 per_device_train_batch_size: 2
-gradient_accumulation_steps: 8
-dataset_num_proc: 2
-output_dir: "outputs/llama3-cpt"
-report_to: "none"
+gradient_accumulation_steps: 4
+learning_rate: 2e-4
+max_steps: 500           
+warmup_steps: 50
+weight_decay: 0.01
+lr_scheduler_type: "cosine"
+fp16: false
+bf16: true             
+seed: 42
+logging_steps: 10
+save_steps: 100
