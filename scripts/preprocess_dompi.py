@@ -5,19 +5,22 @@ import json
 from datasets import load_dataset
 
 SPLITS = [
-    'carnaubais',
-    'tabuleiros_alto_parnaiba',
-    'planice_litoran',
-    'entre_rios',
-    'vale_do_sambito',
-    'vale_dos_rios_piaui_e_itaueiras',
-    'cocais',
-    'mangabeiras',
-    'serra_da_capivara',
-    'vale_do_rio_guaribas',
-    'chapada_vale_do_rio_itaim',
-    'vale_do_caninde',
+    'carnaubais'
 ]
+# SPLITS = [
+#     'carnaubais',
+#     'tabuleiros_alto_parnaiba',
+#     'planice_litoran',
+#     'entre_rios',
+#     'vale_do_sambito',
+#     'vale_dos_rios_piaui_e_itaueiras',
+#     'cocais',
+#     'mangabeiras',
+#     'serra_da_capivara',
+#     'vale_do_rio_guaribas',
+#     'chapada_vale_do_rio_itaim',
+#     'vale_do_caninde',
+# ]
 
 def main(args):
     os.makedirs(args.output, exist_ok=True)
