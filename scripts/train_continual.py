@@ -5,8 +5,7 @@ import json
 import torch
 from datasets import Dataset
 from unsloth import FastLanguageModel
-from trl import SFTTrainer
-from transformers import TrainingArguments
+from trl import SFTTrainer, SFTConfig
 
 def load_config(path):
     with open(path) as f:
@@ -27,25 +26,25 @@ def main(args):
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=cfg["model_name"],
         max_seq_length=cfg["max_seq_length"],
-        dtype=None,           # Auto-detect
+        dtype=None,
         load_in_4bit=True,
     )
 
     model = FastLanguageModel.get_peft_model(
         model,
-        r=cfg["lora_r"],
-        lora_alpha=cfg["lora_alpha"],
-        lora_dropout=cfg["lora_dropout"],
+        r=int(cfg["lora_r"]),
+        lora_alpha=int(cfg["lora_alpha"]),
+        lora_dropout=float(cfg["lora_dropout"]),
         target_modules=cfg["target_modules"],
         bias="none",
         use_gradient_checkpointing="unsloth",
-        random_state=cfg["seed"],
+        random_state=int(cfg["seed"]),
     )
 
     print(f"Carregando dados: {cfg['data_path']}")
     dataset = load_jsonl(cfg["data_path"], text_col=cfg["text_column"])
 
-    training_args = TrainingArguments(
+    training_args = SFTConfig(
         output_dir=cfg["output_dir"],
         per_device_train_batch_size=int(cfg["per_device_train_batch_size"]),
         gradient_accumulation_steps=int(cfg["gradient_accumulation_steps"]),
@@ -60,13 +59,14 @@ def main(args):
         save_steps=int(cfg["save_steps"]),
         seed=int(cfg["seed"]),
         report_to="none",
+        dataset_text_field=cfg["text_column"],
+        max_seq_length=int(cfg["max_seq_length"]),
     )
+
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
         train_dataset=dataset,
-        dataset_text_field=cfg["text_column"],
-        max_seq_length=cfg["max_seq_length"],
         args=training_args,
     )
 
