@@ -1,7 +1,7 @@
-# scripts/preprocess_dompi.py
 import argparse
 import os
 import json
+import re
 import random
 from datasets import load_dataset
 
@@ -24,11 +24,35 @@ MAX_EXEMPLOS = 3000
 TRAIN_RATIO  = 0.8
 SEED         = 42
 
+
+def limpar_texto(texto):
+    texto = re.sub(r'<!--.*?-->', '', texto, flags=re.DOTALL)
+    texto = re.sub(r'<[^>]+>', '', texto)
+    texto = re.sub(r'#{1,6}\s', '', texto)
+    texto = re.sub(r'\*\*|__|\*|_|`{1,3}', '', texto)
+    texto = re.sub(r'\|[-\s|]+\|', '', texto)
+    texto = re.sub(r'\|.*?\|', ' ', texto)
+    texto = re.sub(r'^\d+\s*$', '', texto, flags=re.MULTILINE)
+    texto = re.sub(r'http\S+', '', texto)
+    linhas = [l.strip() for l in texto.split('\n')]
+    linhas = [l for l in linhas if len(l) > 20]
+    texto = '\n'.join(linhas)
+    texto = re.sub(r'\n{3,}', '\n\n', texto)
+    texto = re.sub(r' {2,}', ' ', texto)
+    return texto.strip()
+
+
+def texto_valido(texto):
+    if len(texto) < 200:
+        return False
+    return True
+
+
 def main(args):
     os.makedirs(args.output, exist_ok=True)
     exemplos = []
+    descartados = 0
 
-    # 1. Coleta os exemplos
     for split in SPLITS:
         if len(exemplos) >= MAX_EXEMPLOS:
             break
@@ -39,21 +63,23 @@ def main(args):
             if len(exemplos) >= MAX_EXEMPLOS:
                 break
             texto = row.get("texto", "").strip()
-            if texto:
+            texto = limpar_texto(texto)
+            if texto_valido(texto):
+                if len(texto) > 6000:
+                    texto = texto[:6000]
                 exemplos.append({"text": texto})
                 count += 1
-        print(f"  → {count} exemplos")
+            else:
+                descartados += 1
+        print(f"  → {count} exemplos aproveitados")
 
-    # 2. Embaralha de forma reproduzível
     random.seed(SEED)
     random.shuffle(exemplos)
 
-    # 3. Divide treino/teste
     corte  = int(len(exemplos) * TRAIN_RATIO)
     treino = exemplos[:corte]
     teste  = exemplos[corte:]
 
-    # 4. Salva os arquivos
     train_path = os.path.join(args.output, "train.jsonl")
     test_path  = os.path.join(args.output, "test.jsonl")
 
@@ -65,8 +91,10 @@ def main(args):
         for ex in teste:
             f.write(json.dumps(ex, ensure_ascii=False) + "\n")
 
-    print(f"\nTreino: {len(treino)} exemplos → train.jsonl")
+    print(f"\nDescartados (ruído/curtos): {descartados}")
+    print(f"Treino: {len(treino)} exemplos → train.jsonl")
     print(f"Teste:  {len(teste)} exemplos  → test.jsonl")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
