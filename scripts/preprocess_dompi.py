@@ -11,7 +11,7 @@ SPLITS = [
     'entre_rios', 'vale_do_sambito',
 ]
 
-MAX_EXEMPLOS = 3000
+MAX_EXEMPLOS = 35000
 TRAIN_RATIO  = 0.8
 SEED         = 42
 
