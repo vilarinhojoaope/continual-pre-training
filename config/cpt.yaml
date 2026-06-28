@@ -14,18 +14,18 @@ target_modules:
   - "o_proj"
   - "gate_proj"
   - "up_proj"
-  - "down_proj"
+  - "down_down"
 
-max_seq_length: 1024
-per_device_train_batch_size: 2
-gradient_accumulation_steps: 4
+max_seq_length: 2048
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 2
 learning_rate: 2e-4
 max_steps: 3000
 warmup_steps: 200
 weight_decay: 0.01
 lr_scheduler_type: "cosine"
-fp16: true
-bf16: false
+fp16: false
+bf16: true
 seed: 42
 logging_steps: 50
 save_steps: 500
